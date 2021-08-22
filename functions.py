@@ -142,13 +142,14 @@ def rot_crop_old(path, filename, root_path):
 
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
     edged = cv2.Canny(img, 170, 490)
+
     # Apply adaptive threshold
     thresh = cv2.adaptiveThreshold(edged, 255, 1, 1, 11, 2)
     thresh_color = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
 
     # apply some dilation and erosion to join the gaps - change iteration to detect more or less area's
-    thresh = cv2.dilate(thresh,None,iterations = 15)
-    thresh = cv2.erode(thresh,None,iterations = 15)
+    thresh = cv2.dilate(thresh,None,iterations = 50)
+    thresh = cv2.erode(thresh,None,iterations = 50)
 
     # Find the contours
     contours,hierarchy = cv2.findContours(thresh,
@@ -357,10 +358,11 @@ def linecrop(img, line1, line2):
     # print("Linev: ", linev)
     # print("Lineh: ", lineh)
     intersec = np.int_(line_intersection(linev, lineh)).tolist()
+    print("intersection: ", intersec)
     slopeh = (lineh[0][1] - lineh[1][1]) / (lineh[0][0] - lineh[1][0])
     # print("slope: ", slopeh)
     angle_tmp = 90 + math.degrees(math.atan(slopeh))
-    # print("angle of horizontal line: ", angle_tmp)
+    print("angle of horizontal line: ", angle_tmp)
     long_edge = np.sin(math.radians(angle_tmp))*squared
     short_edge = np.cos(math.radians(angle_tmp))*squared
     # print(long_edge)

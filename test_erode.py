@@ -22,7 +22,7 @@ def erode(path, filename, root_path):
 
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 
-    edged = cv2.Canny(img, 100, 300)
+    edged = cv2.Canny(img, 100, 600)
     cv2.namedWindow('edge', 0)
     cv2.imshow('edge',edged)
 
@@ -33,11 +33,11 @@ def erode(path, filename, root_path):
     cv2.imshow('thresh',thresh)
 
     # apply some dilation and erosion to join the gaps - change iteration to detect more or less area's
-    thresh = cv2.dilate(thresh,None,iterations = 25)
+    thresh = cv2.dilate(thresh,None,iterations = 30)
     cv2.namedWindow('dilate', 0)
     cv2.imshow('dilate',thresh)
 
-    thresh = cv2.erode(thresh,None,iterations = 25)
+    thresh = cv2.erode(thresh,None,iterations = 30)
 
     outpath_erode = root_path + "\\erode\\"+ filename +".jpg"
 
@@ -56,7 +56,7 @@ def get_file_path(root_path,file_list,dir_list,fnlist):
             file_list.append(dir_file_path)
  
 if __name__ == "__main__":
-    root_path = "C:\\Users\\yzgua\\Desktop\\bat\\test_erode"
+    root_path = "C:\\Users\\yzgua\\Desktop\\bat\\test_erode_2"
     file_list = []
     dir_list = []
     fnlist = []
