@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+import pandas as pd
+import json
 import math
 import itertools
 from collections import Counter
@@ -10,15 +12,9 @@ def rec_crop(path, filename, rootpath):
     h_pic, w_pic, c_pic = img.shape[:3]
     # print(h_pic)
 
-    if h_pic ==  3288 and w_pic == 4608:
-        cut_h = 100
-        cut_w = 850
-        img = img[cut_h:h_pic-cut_h, cut_w:w_pic-cut_w]
-
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 
-    edged = cv2.Canny(gray, 100, 500, L2gradient = True)
-    # edged = cv2.Canny(img, 170, 490)
+    edged = cv2.Canny(img, 170, 490)
     # cv2.namedWindow('edge', 0)
     # cv2.imshow('edge',edged)
 
@@ -66,7 +62,7 @@ def rec_crop(path, filename, rootpath):
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
 
-    margin_coef = 100
+    margin_coef = 10000
 
     margin_x = int(w_pic/margin_coef)
     margin_y = int(h_pic/margin_coef)
@@ -78,8 +74,9 @@ def rec_crop(path, filename, rootpath):
 
     crop = img[ylow:yhigh, xlow:xhigh]
     out_path = rootpath + "\\crop\\"+ filename +".jpg"
-    print(out_path)
+    # print(out_path)
     cv2.imwrite(out_path, crop)
+    return [xlow, ylow, xhigh-xlow, yhigh-ylow]
 
 def calarea(rec):
     x1 = rec[0,0]
@@ -95,7 +92,6 @@ def calarea(rec):
 
 def crop_minAreaRect(img, rect, box, h, w):
     # rotate img
-    print(rect)
     angle = rect[2]
     rows,cols = img.shape[0], img.shape[1]
     adjust_angle = 0
@@ -107,7 +103,6 @@ def crop_minAreaRect(img, rect, box, h, w):
     img_rot = cv2.warpAffine(img,M,(cols,rows))
     # rotate bounding box
     pts = np.int0(cv2.transform(np.array([box]), M))[0]
-    print("After rot pts: ", pts)
     pts[pts < 0] = 0
     for i in range(4):
         if pts[i,0] > w:
@@ -141,7 +136,7 @@ def rot_crop_old(path, filename, root_path):
     # cv2.destroyAllWindows()
 
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-    edged = cv2.Canny(img, 170, 490)
+    edged = cv2.Canny(img, 100, 600)
 
     # Apply adaptive threshold
     thresh = cv2.adaptiveThreshold(edged, 255, 1, 1, 11, 2)
@@ -174,7 +169,6 @@ def rot_crop_old(path, filename, root_path):
     # cv2.drawContours(img,[maxbox],0,(0,0,255),10)
     # cv2.namedWindow('image bound', 0)
     # cv2.imshow('image bound',img)
-
     crop_rot = crop_minAreaRect(img, maxrect, maxbox, h , w)
     outpath = root_path + "\\result\\"+ filename +".jpg"
     # print(outpath)
@@ -183,8 +177,11 @@ def rot_crop_old(path, filename, root_path):
     # cv2.imshow('Crop result',crop_rot)
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
-
+    print("Maxbox:")
+    print(maxbox)
+    print(maxrect)
     cv2.imwrite(outpath, crop_rot)
+    return maxbox[0], maxrect[2], crop_rot.shape[0], crop_rot.shape[1]
 
 def distance(pt1, pt2):
     (x1, y1), (x2, y2) = pt1, pt2
@@ -358,11 +355,11 @@ def linecrop(img, line1, line2):
     # print("Linev: ", linev)
     # print("Lineh: ", lineh)
     intersec = np.int_(line_intersection(linev, lineh)).tolist()
-    print("intersection: ", intersec)
+    # print("intersection: ", intersec)
     slopeh = (lineh[0][1] - lineh[1][1]) / (lineh[0][0] - lineh[1][0])
     # print("slope: ", slopeh)
     angle_tmp = 90 + math.degrees(math.atan(slopeh))
-    print("angle of horizontal line: ", angle_tmp)
+    # print("angle of horizontal line: ", angle_tmp)
     long_edge = np.sin(math.radians(angle_tmp))*squared
     short_edge = np.cos(math.radians(angle_tmp))*squared
     # print(long_edge)
@@ -374,43 +371,26 @@ def linecrop(img, line1, line2):
     box_float = np.vstack((pt1,pt2,pt3,pt4))
     box_int = np.int32(box_float)
     img_crop = crop_anglebox(img, angle_tmp, box_int, h, w)
-    return img_crop
+    return img_crop, intersec, angle_tmp
 
-def rot_crop(path, filename, root_path):
-    # Load the image
-    img_origin = cv2.imread(path)
-    cv2.namedWindow('original', 0)
-    cv2.imshow('original',img_origin)
-
-    img = img_origin.copy()
-    img_crop = img_origin.copy()
-
-    h, w, c = img.shape[:3]
-    print("height: {} , width: {}".format(h, w))
-
-    if h ==  3288 and w == 4608:
-        cut_h = 100
-        cut_w = 850
-        img = img[cut_h:h-cut_h, cut_w:w-cut_w]
-        img_crop = img_crop[cut_h:h-cut_h, cut_w:w-cut_w]
-
-
+def rot_crop(img, filename, root_path):
+    img_crop = img.copy()
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 
     edged = cv2.Canny(img, 100, 600)
-    cv2.namedWindow('edge', 0)
-    cv2.imshow('edge',edged)
+    # cv2.namedWindow('edge', 0)
+    # cv2.imshow('edge',edged)
 
     # Apply adaptive threshold
     thresh = cv2.adaptiveThreshold(edged, 255, 1, 1, 11, 2)
     thresh_color = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
-    cv2.namedWindow('thresh', 0)
-    cv2.imshow('thresh',thresh)
+    # cv2.namedWindow('thresh', 0)
+    # cv2.imshow('thresh',thresh)
 
     # apply some dilation and erosion to join the gaps - change iteration to detect more or less area's
     thresh = cv2.dilate(thresh,None,iterations = 50)
-    cv2.namedWindow('dilate', 0)
-    cv2.imshow('dilate',thresh)
+    # cv2.namedWindow('dilate', 0)
+    # cv2.imshow('dilate',thresh)
 
     thresh = cv2.erode(thresh,None,iterations = 50)
 
@@ -423,10 +403,142 @@ def rot_crop(path, filename, root_path):
     # cv2.imshow('erode',thresh)
     vertice_list = rcg_vertice(erode)
     line1, line2 = rcg_angle(vertice_list)
-    img_rot_crop = linecrop(img_crop, line1, line2)
+    img_rot_crop, intersec, angle = linecrop(img_crop, line1, line2)
 
-    outpath_final = root_path + "\\result2\\"+ filename +".jpg"
+    outpath_final = root_path + "\\result\\"+ filename +".jpg"
     cv2.imwrite(outpath_final, img_rot_crop)
+
+    return intersec, angle, img_rot_crop.shape[0], img_rot_crop.shape[1]
+
+def label_change(anno, filename, images_id, x_cut, y_cut, intersection, angle, img_aftercrop_h, img_aftercrop_w, json_data):    
+    if type(anno.loc[images_id.loc[filename][2]].bbox).__name__=='list':
+        images_bbox = anno.loc[images_id.loc[filename][2]].bbox
+    else:
+        images_bbox=anno.loc[images_id.loc[filename][2]].bbox.values
+
+    # 查找filename的源images_bbox
+    ori_label = images_bbox
+
+    rec_cut = [x_cut, y_cut]
+
+    ori_label[0] = ori_label[0] - rec_cut[0] - intersection[0]
+    ori_label[1] = ori_label[1] - rec_cut[1] - intersection[1]
+
+    if abs(angle-90)<angle:
+        adjust_angle = angle-90
+    else:
+        adjust_angle = angle
+
+    box = [[ ori_label[0], ori_label[1]],
+            [ori_label[0]+ori_label[2], ori_label[1]],
+            [ori_label[0]+ori_label[2], ori_label[1]+ori_label[3]],
+            [ori_label[0], ori_label[1]+ori_label[3]]]
+
+    M = cv2.getRotationMatrix2D((0,0),adjust_angle,1)
+    # rotate bounding box
+    pts = np.int0(cv2.transform(np.array([box]), M))[0]
+
+    pts[pts < 0] = 0
+    for i in range(4):
+        if pts[i,0] > img_aftercrop_w:
+            pts[i,0] = img_aftercrop_w
+        if pts[i,1] > img_aftercrop_h:
+            pts[i,1] = img_aftercrop_h
+    x1 = pts[0,0]
+    y1 = pts[0,1]
+    x2 = pts[1,0]
+    y2 = pts[1,1]
+    x3 = pts[2,0]
+    y3 = pts[2,1]
+    x4 = pts[3,0]
+    y4 = pts[3,1]
+
+    xlow = min(x1, x2, x3, x4)
+    xhigh = max(x1, x2, x3, x4)
+    ylow = min(y1, y2, y3, y4)
+    yhigh = max(y1, y2, y3, y4)
+
+    # 变换后的的bbox
+    output_bbox = [xlow, ylow, xhigh-xlow, yhigh-ylow]
+    # print(output_bbox)
+
+    # P.S. Here need to write the output_bbox to the output dataframe.
+    ...change the json_data
+
+def rot_crop_all(path, filename, root_path):
+    # Load the image
+    img_origin = cv2.imread(path)
+    # cv2.namedWindow('original', 0)
+    # cv2.imshow('original',img_origin)
+
+    img = img_origin.copy()
+
+    h, w, c = img.shape[:3]
+    print("height: {} , width: {}".format(h, w))
+
+    cut_w = 0
+    cut_h = 0
+    intersec = [0,0]
+    angle = 90
+    after_crop_w = 0
+    after_crop_h = 0
+
+    # For spesific pics use different methods
+    if h ==  3288 and w == 4608:
+        cut_h = 100
+        cut_w = 850
+        img = img[cut_h:h-cut_h, cut_w:w-cut_w]
+        intersec, angle, after_crop_h, after_crop_w = rot_crop(img, filename, root_path)
+    else:
+        box_rec = rec_crop(path,filename, root_path)
+        cut_w = box_rec[0]
+        cut_h = box_rec[1]
+        path_rec = root_path +"\\crop\\"+ filename +".jpg"
+        intersec, angle, after_crop_h, after_crop_w = rot_crop_old(path_rec,filename, root_path)
+    
+    # print("----------------------------------------")
+    # print("cut_w: ", cut_w)
+    # print("cut_h: ", cut_h)
+    # print("intersec: ", intersec)
+    # print("angle: ", angle)
+    # print("after_crop_h: ", after_crop_h)
+    # print("after_crop_w: ", after_crop_w)
+    # print("----------------------------------------")
+
+    # Change label
+    # change path
+    with open('C:/Users/yzgua/Desktop/bat/train.json','r',encoding='utf8')as fp:
+        json_data = json.load(fp)
+        images_id=pd.DataFrame(json_data['images'])
+        images_id.index=images_id.file_name
+        anno=pd.DataFrame(json_data['annotations'])
+        anno.index=anno.image_id
+
+    # use label_change function to Modify the json_data output
+    label_change(anno, filename, images_id, cut_w, cut_h, intersec, angle, after_crop_h, after_crop_w, json_data)
+
+    # 以下为 trimming_zangwu_json中原来的代码
+    # # 保存至json文件
+    # class NumpyEncoder(json.JSONEncoder):
+    #     """ Special json encoder for numpy types """
+    #     def default(self, obj):
+    #         if isinstance(obj, (np.int_, np.intc, np.intp, np.int8,
+    #                             np.int16, np.int32, np.int64, np.uint8,
+    #                             np.uint16, np.uint32, np.uint64)):
+    #             return int(obj)
+    #         elif isinstance(obj, (np.float_, np.float16, np.float32,
+    #                             np.float64)):
+    #             return float(obj)
+    #         elif isinstance(obj, (np.ndarray,)):
+    #             return obj.tolist()
+    #         return json.JSONEncoder.default(self, obj)
+
+    # json_data['annotations']=list(anno.reset_index(drop=True).T.to_dict().values())
+    # with open(tar+'/train.json',"w") as f:
+    #     json.dump(json_data,f, cls=NumpyEncoder)
+    #     print("加载入文件完成...")
+
+
 
 
 

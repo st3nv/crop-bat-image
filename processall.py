@@ -13,7 +13,8 @@ def get_file_path(root_path,file_list,dir_list,fnlist):
             file_list.append(dir_file_path)
  
 if __name__ == "__main__":
-    root_path = "C:\\Users\\yzgua\\Desktop\\bat\\test_large"
+    # Location of the pic folder
+    root_path = "C:\\Users\\yzgua\\Desktop\\bat\\final_test"
     file_list = []
     dir_list = []
     fnlist = []
@@ -40,4 +41,4 @@ for i in range(num):
     path = file_list[i]
     filename = fnlist[i][:-4]
     print("path:", path)
-    rot_crop(path,filename, root_path)
+    rot_crop_all(path,filename, root_path)
