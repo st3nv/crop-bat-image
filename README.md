@@ -1,4 +1,4 @@
-# Cropping the battery images
+# Automatically cropping images of PV Cells
 
 ## the core fucntion:
 **rot_crop_all** in functions.py
